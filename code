@@ -1,0 +1,40 @@
+import csv
+import json
+import io
+
+def lambda_handler(event, context):
+    # Prepare a list to hold CSV rows
+    csv_output = io.StringIO()
+    csv_writer = csv.writer(csv_output)
+
+    # Extract the first record to determine the CSV header
+    sample_record = event['records'][0]['data']
+    log_event = json.loads(sample_record)
+    csv_header = log_event.keys()
+    csv_writer.writerow(csv_header)
+
+    transformed_records = []
+    
+    for record in event['records']:
+        # Decode base64 data and parse JSON
+        payload = base64.b64decode(record['data']).decode('utf-8')
+        log_event = json.loads(payload)
+        
+        # Extract data and write as a CSV row
+        csv_row = [log_event.get(key, '') for key in csv_header]
+        csv_writer.writerow(csv_row)
+        
+        # Convert CSV row back to base64
+        transformed_record = {
+            'recordId': record['recordId'],
+            'result': 'Ok',
+            'data': base64.b64encode(csv_output.getvalue().encode('utf-8')).decode('utf-8')
+        }
+        transformed_records.append(transformed_record)
+    
+    # Clear the output for next iteration
+    csv_output.seek(0)
+    csv_output.truncate(0)
+    
+    # Return transformed records
+    return {'records': transformed_records}

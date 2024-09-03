@@ -1,48 +1,27 @@
-function listGoogleTasks() {
-  // Clear the existing data in the sheet
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  sheet.clear();
-
-  // Set headers in the sheet
-  sheet.appendRow(['Task Name', 'Description', 'Due Date', 'Status']);
-
-  // Get the list of task lists in Google Tasks
-  var taskLists = Tasks.Tasklists.list().items;
-
-  if (!taskLists || taskLists.length === 0) {
-    Logger.log('No task lists found.');
-    return;
-  }
-
-  // Loop through each task list
-  for (var i = 0; i < taskLists.length; i++) {
-    var taskListId = taskLists[i].id;
-    var taskListName = taskLists[i].title;
-
-    // Get the tasks in the current task list
-    var tasks = Tasks.Tasks.list(taskListId).items;
-
-    if (!tasks || tasks.length === 0) {
-      Logger.log('No tasks found in task list: ' + taskListName);
-      continue;
-    }
-
-    // Loop through each task and add it to the sheet
-    for (var j = 0; j < tasks.length; j++) {
-      var task = tasks[j];
-      var taskName = task.title;
-      var description = task.notes || '';
-      var dueDate = task.due ? new Date(task.due).toLocaleDateString() : 'No Due Date';
-      var status = task.status === 'completed' ? 'Completed' : 'Not Completed';
-
-      sheet.appendRow([taskName, description, dueDate, status]);
-    }
-  }
+// This is the function that will handle HTTP GET requests when you deploy your script as a web app
+function doGet() {
+  return ContentService.createTextOutput(listGoogleTasks());
 }
 
-function onOpen() {
-  var ui = SpreadsheetApp.getUi();
-  ui.createMenu('Task List')
-    .addItem('List Google Tasks', 'listGoogleTasks')
-    .addToUi();
+// This function lists tasks from a specific task list in Google Tasks
+function listGoogleTasks() {
+  var tasklistId = 'your-tasklist-id'; // Replace with your actual Task List ID
+  var tasks = Tasks.Tasks.list(tasklistId);
+  
+  if (!tasks.items || tasks.items.length === 0) {
+    return "No tasks found.";
+  }
+  
+  var output = "<table border='1'><tr><th>Task Name</th><th>Description</th></tr>";
+  
+  for (var i = 0; i < tasks.items.length; i++) {
+    var task = tasks.items[i];
+    var taskTitle = task.title || "No Title"; // Default if no title
+    var taskNotes = task.notes || "No Description"; // Default if no description
+    
+    output += "<tr><td>" + taskTitle + "</td><td>" + taskNotes + "</td></tr>";
+  }
+  
+  output += "</table>";
+  return output;
 }

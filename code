@@ -1,25 +1,34 @@
 // This is the function that will handle HTTP GET requests when you deploy your script as a web app
 function doGet() {
-  return ContentService.createTextOutput(listGoogleTasks());
+  return ContentService.createTextOutput(listAllGoogleTasks());
 }
 
-// This function lists tasks from a specific task list in Google Tasks
-function listGoogleTasks() {
-  var tasklistId = 'your-tasklist-id'; // Replace with your actual Task List ID
-  var tasks = Tasks.Tasks.list(tasklistId);
+// This function lists tasks from all task lists in Google Tasks
+function listAllGoogleTasks() {
+  var taskLists = Tasks.Tasklists.list().items;
   
-  if (!tasks.items || tasks.items.length === 0) {
-    return "No tasks found.";
+  if (!taskLists || taskLists.length === 0) {
+    return "No task lists found.";
   }
   
-  var output = "<table border='1'><tr><th>Task Name</th><th>Description</th></tr>";
+  var output = "<table border='1'><tr><th>Task List Name</th><th>Task Name</th><th>Description</th></tr>";
   
-  for (var i = 0; i < tasks.items.length; i++) {
-    var task = tasks.items[i];
-    var taskTitle = task.title || "No Title"; // Default if no title
-    var taskNotes = task.notes || "No Description"; // Default if no description
+  for (var i = 0; i < taskLists.length; i++) {
+    var taskList = taskLists[i];
+    var taskListName = taskList.title || "Unnamed Task List";
+    var tasks = Tasks.Tasks.list(taskList.id).items;
     
-    output += "<tr><td>" + taskTitle + "</td><td>" + taskNotes + "</td></tr>";
+    if (tasks && tasks.length > 0) {
+      for (var j = 0; j < tasks.length; j++) {
+        var task = tasks[j];
+        var taskTitle = task.title || "No Title";
+        var taskNotes = task.notes || "No Description";
+        
+        output += "<tr><td>" + taskListName + "</td><td>" + taskTitle + "</td><td>" + taskNotes + "</td></tr>";
+      }
+    } else {
+      output += "<tr><td>" + taskListName + "</td><td colspan='2'>No tasks in this list</td></tr>";
+    }
   }
   
   output += "</table>";

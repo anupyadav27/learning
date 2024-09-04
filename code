@@ -1,36 +1,102 @@
-// This is the function that will handle HTTP GET requests when you deploy your script as a web app
-function doGet() {
-  return ContentService.createTextOutput(listAllGoogleTasks());
-}
+import json
 
-// This function lists tasks from all task lists in Google Tasks
-function listAllGoogleTasks() {
-  var taskLists = Tasks.Tasklists.list().items;
-  
-  if (!taskLists || taskLists.length === 0) {
-    return "No task lists found.";
-  }
-  
-  var output = "<table border='1'><tr><th>Task List Name</th><th>Task Name</th><th>Description</th></tr>";
-  
-  for (var i = 0; i < taskLists.length; i++) {
-    var taskList = taskLists[i];
-    var taskListName = taskList.title || "Unnamed Task List";
-    var tasks = Tasks.Tasks.list(taskList.id).items;
+# Load Terraform state file
+def load_tfstate(filename):
+    with open(filename, 'r') as file:
+        state = json.load(file)
+    return state
+
+# Extract resources from the state file
+def extract_resources(state):
+    resources = []
+    for resource in state.get('resources', []):
+        resource_type = resource['type']
+        resource_name = resource['name']
+        for instance in resource['instances']:
+            attributes = instance.get('attributes', {})
+            resource_id = attributes.get('id', None)
+            resources.append({
+                'type': resource_type,
+                'name': resource_name,
+                'id': resource_id,
+                'attributes': attributes
+            })
+    return resources
+
+# Load the state file
+state_file = 'terraform.tfstate'
+state = load_tfstate(state_file)
+
+# Extract the list of resources
+resources = extract_resources(state)
+
+# Print the resources
+for resource in resources:
+    print(f"Resource Type: {resource['type']}, Name: {resource['name']}, ID: {resource['id']}")
+
+
+from collections import defaultdict
+
+# Build relationships between resources
+def build_relationships(resources):
+    relationships = defaultdict(list)
     
-    if (tasks && tasks.length > 0) {
-      for (var j = 0; j < tasks.length; j++) {
-        var task = tasks[j];
-        var taskTitle = task.title || "No Title";
-        var taskNotes = task.notes || "No Description";
+    # For each resource, we check its attributes to find relationships to other resources
+    for resource in resources:
+        if 'vpc_id' in resource['attributes']:
+            # If the resource has a 'vpc_id' attribute, it's connected to a VPC
+            vpc_id = resource['attributes']['vpc_id']
+            relationships[vpc_id].append(resource)
+        elif 'subnet_id' in resource['attributes']:
+            # If the resource has a 'subnet_id' attribute, it's connected to a subnet
+            subnet_id = resource['attributes']['subnet_id']
+            relationships[subnet_id].append(resource)
+        # Add other relationships as needed (security groups, etc.)
+    
+    return relationships
+
+# Find nodes with the most resources attached (parent nodes)
+def find_nodes_with_most_resources(relationships):
+    node_connections = sorted(relationships.items(), key=lambda item: len(item[1]), reverse=True)
+    return node_connections
+
+# Build relationships and find parent nodes with most resources
+relationships = build_relationships(resources)
+nodes_with_most_resources = find_nodes_with_most_resources(relationships)
+
+# Print the nodes with the most connections
+print("Nodes with most resources attached:")
+for node_id, attached_resources in nodes_with_most_resources[:5]:  # Display top 5
+    print(f"Node ID: {node_id} has {len(attached_resources)} resources")
+
+# Extract relationships between resources based on attributes
+def extract_relationships(resources):
+    relationships = []
+    
+    for resource in resources:
+        # Check if the resource has a 'vpc_id' (for VPC relationships)
+        if 'vpc_id' in resource['attributes']:
+            relationships.append({
+                'from': resource['attributes']['vpc_id'],
+                'to': resource['id'],
+                'type': 'CONTAINED_BY'
+            })
         
-        output += "<tr><td>" + taskListName + "</td><td>" + taskTitle + "</td><td>" + taskNotes + "</td></tr>";
-      }
-    } else {
-      output += "<tr><td>" + taskListName + "</td><td colspan='2'>No tasks in this list</td></tr>";
-    }
-  }
-  
-  output += "</table>";
-  return output;
-}
+        # Check for other relationships (e.g., subnets, security groups)
+        if 'subnet_id' in resource['attributes']:
+            relationships.append({
+                'from': resource['attributes']['subnet_id'],
+                'to': resource['id'],
+                'type': 'CONNECTED_TO'
+            })
+        
+        # You can add more relationship types here...
+    
+    return relationships
+
+# Extract relationships from the resources
+resource_relationships = extract_relationships(resources)
+
+# Print out the relationships
+for relation in resource_relationships:
+    print(f"{relation['from']} -[{relation['type']}]-> {relation['to']}")

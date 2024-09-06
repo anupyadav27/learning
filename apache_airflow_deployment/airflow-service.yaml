@@ -1,0 +1,26 @@
+# airflow-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-web
+  namespace: airflow
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30002
+  selector:
+    app: airflow-web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-scheduler
+  namespace: airflow
+spec:
+  ports:
+  - port: 8793
+    targetPort: 8793
+  selector:
+    app: airflow-scheduler

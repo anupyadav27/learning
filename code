@@ -1,18 +1,47 @@
-anupyadav@C02FN2KYMD6M lab % kubectl api-resources |grep storage 
-csidrivers                                       storage.k8s.io/v1                 false        CSIDriver
-csinodes                                         storage.k8s.io/v1                 false        CSINode
-csistoragecapacities                             storage.k8s.io/v1                 true         CSIStorageCapacity
-storageclasses                      sc           storage.k8s.io/v1                 false        StorageClass
-volumeattachments                                storage.k8s.io/v1                 false        VolumeAttachment
-anupyadav@C02FN2KYMD6M lab % kubectl get pv -n data-collection
-NAME         CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
-ebs-volume   10Gi       RWO            Retain           Available           gp2            <unset>                          144m
-anupyadav@C02FN2KYMD6M lab % kubectl get pvc -n data-collection
-NAME               STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
-data-nifi-0        Pending                                                     <unset>                 154m
-data-zookeeper-0   Pending                                                     <unset>                 154m
-nifi-pvc           Pending                                      gp2            <unset>                 146m
-anupyadav@C02FN2KYMD6M lab % kubectl get storageclass
-NAME   PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-gp2    kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   false                  8h
+anupyadav@C02FN2KYMD6M lab % kubectl describe pod nifi-0 -n data-collection
+Name:             nifi-0
+Namespace:        data-collection
+Priority:         0
+Service Account:  default
+Node:             <none>
+Labels:           app=nifi
+                  apps.kubernetes.io/pod-index=0
+                  controller-revision-hash=nifi-675bd944d7
+                  statefulset.kubernetes.io/pod-name=nifi-0
+Annotations:      <none>
+Status:           Pending
+IP:               
+IPs:              <none>
+Controlled By:    StatefulSet/nifi
+Containers:
+  nifi:
+    Image:        apache/nifi:latest
+    Port:         8080/TCP
+    Host Port:    0/TCP
+    Environment:  <none>
+    Mounts:
+      /opt/nifi/nifi-current from data (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-nds6b (ro)
+Conditions:
+  Type           Status
+  PodScheduled   False 
+Volumes:
+  data:
+    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+    ClaimName:  data-nifi-0
+    ReadOnly:   false
+  kube-api-access-nds6b:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason            Age                    From               Message
+  ----     ------            ----                   ----               -------
+  Warning  FailedScheduling  2m18s (x32 over 157m)  default-scheduler  0/3 nodes are available: pod has unbound immediate PersistentVolumeClaims. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.
 anupyadav@C02FN2KYMD6M lab % 

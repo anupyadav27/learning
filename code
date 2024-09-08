@@ -1,74 +1,22 @@
-To create a data collection namespace and deploy Apache NiFi, Kafka, and Fluentd within a Kubernetes cluster (such as EKS), follow these steps. I’ll guide you through creating a namespace and deploying each component using Helm charts or Kubernetes manifests.
-
-Step 1: Create the Data Collection Namespace
-bash
-Copy code
-kubectl create namespace data-collection
-Step 2: Deploy Apache NiFi
-Apache NiFi can be deployed using a Helm chart.
-
-Add the Helm chart repository for NiFi:
-
-bash
-Copy code
-helm repo add cetic https://cetic.github.io/helm-charts
-helm repo update
-Install NiFi in the data-collection namespace:
-
-bash
-Copy code
-helm install nifi cetic/nifi --namespace data-collection
-You can customize values by using a custom values.yaml file if required.
-
-Step 3: Deploy Kafka
-You can deploy Kafka using the Bitnami Helm chart.
-
-Add the Bitnami repository:
-
-bash
-Copy code
-helm repo add bitnami https://charts.bitnami.com/bitnami
-Install Kafka:
-
-bash
-Copy code
-helm install kafka bitnami/kafka --namespace data-collection
-Customize Kafka configuration in a values.yaml if you need specific settings for your cluster.
-
-Step 4: Deploy Fluentd
-Fluentd can also be deployed using a Helm chart.
-
-Add the Helm repository for Fluentd:
-
-bash
-Copy code
-helm repo add fluent https://fluent.github.io/helm-charts
-helm repo update
-Install Fluentd with the Elasticsearch output (or customize as per your requirements):
-
-bash
-Copy code
-helm install fluentd fluent/fluentd --namespace data-collection
-You can customize Fluentd to act as a Kafka consumer or to process logs from other sources.
-
-Step 5: Connect the Components
-NiFi: Configure NiFi to send and receive data via Kafka using processors like PublishKafka and ConsumeKafka.
-Kafka: Kafka can be used to collect the data from NiFi and Fluentd, and store or process it.
-Fluentd: Configure Fluentd as a Kafka consumer to collect data and route it to storage systems like Elasticsearch, S3, or others.
-Step 6: Verify the Deployment
-Ensure all services are running and connected.
-
-List the pods to check the status:
-
-bash
-Copy code
-kubectl get pods -n data-collection
-Expose or port-forward services like NiFi to access the UI:
-
-bash
-Copy code
-kubectl port-forward svc/nifi 8080:8080 -n data-collection
-Step 7: Scale the Solution
-Once everything is deployed, you can scale components by increasing replicas or nodes as needed using Kubernetes.
-
-Let me know if you need further assistance with customizing configurations or setting up the pipeline!
+anupyadav@C02FN2KYMD6M lab % kubectl get pvc -n data-collection
+NAME               STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+data-nifi-0        Pending                                                     <unset>                 106m
+data-zookeeper-0   Pending                                                     <unset>                 106m
+nifi-pvc           Pending                                      gp2            <unset>                 99m
+anupyadav@C02FN2KYMD6M lab % kubectl describe pvc data-nifi-0 -n data-collection
+Name:          data-nifi-0
+Namespace:     data-collection
+StorageClass:  
+Status:        Pending
+Volume:        
+Labels:        app=nifi
+Annotations:   <none>
+Finalizers:    [kubernetes.io/pvc-protection]
+Capacity:      
+Access Modes:  
+VolumeMode:    Filesystem
+Used By:       nifi-0
+Events:
+  Type    Reason         Age                     From                         Message
+  ----    ------         ----                    ----                         -------
+  Normal  FailedBinding  2m19s (x422 over 107m)  persistentvolume-controller  no persistent volumes available for this claim and no storage class is set

@@ -1,12 +1,33 @@
+# NiFi Service using LoadBalancer
 apiVersion: v1
 kind: Service
 metadata:
-  name: nifi
+  name: nifi-loadbalancer
+  labels:
+    app: nifi
 spec:
-  type: NodePort
+  type: LoadBalancer  # This exposes NiFi externally via a LoadBalancer
   ports:
     - port: 8080
       targetPort: 8080
-      nodePort: 30080
+      protocol: TCP
+  selector:
+    app: nifi
+
+---
+# NiFi Service using NodePort
+apiVersion: v1
+kind: Service
+metadata:
+  name: nifi-nodeport
+  labels:
+    app: nifi
+spec:
+  type: NodePort  # This exposes NiFi via NodePort for internal access
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      nodePort: 30080  # You can set a custom port, or let Kubernetes assign one
   selector:
     app: nifi

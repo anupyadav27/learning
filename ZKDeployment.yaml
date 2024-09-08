@@ -1,9 +1,22 @@
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Service
 metadata:
   name: zookeeper
+  labels:
+    app: zookeeper
 spec:
-  serviceName: "zookeeper"
+  ports:
+    - port: 2181
+  selector:
+    app: zookeeper
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+  labels:
+    app: zookeeper
+spec:
   replicas: 1
   selector:
     matchLabels:
@@ -19,13 +32,16 @@ spec:
         ports:
         - containerPort: 2181
         volumeMounts:
-        - name: data
+        - name: zookeeper-data
           mountPath: /data
-  volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 10Gi
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: zookeeper-data
+        persistentVolumeClaim:
+          claimName: zookeeper-pvc

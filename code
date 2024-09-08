@@ -4,3 +4,15 @@ csinodes                                         storage.k8s.io/v1              
 csistoragecapacities                             storage.k8s.io/v1                 true         CSIStorageCapacity
 storageclasses                      sc           storage.k8s.io/v1                 false        StorageClass
 volumeattachments                                storage.k8s.io/v1                 false        VolumeAttachment
+anupyadav@C02FN2KYMD6M lab % kubectl get pv -n data-collection
+NAME         CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+ebs-volume   10Gi       RWO            Retain           Available           gp2            <unset>                          144m
+anupyadav@C02FN2KYMD6M lab % kubectl get pvc -n data-collection
+NAME               STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+data-nifi-0        Pending                                                     <unset>                 154m
+data-zookeeper-0   Pending                                                     <unset>                 154m
+nifi-pvc           Pending                                      gp2            <unset>                 146m
+anupyadav@C02FN2KYMD6M lab % kubectl get storageclass
+NAME   PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+gp2    kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   false                  8h
+anupyadav@C02FN2KYMD6M lab % 

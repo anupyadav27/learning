@@ -1,22 +1,6 @@
-anupyadav@C02FN2KYMD6M lab % kubectl get pvc -n data-collection
-NAME               STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
-data-nifi-0        Pending                                                     <unset>                 106m
-data-zookeeper-0   Pending                                                     <unset>                 106m
-nifi-pvc           Pending                                      gp2            <unset>                 99m
-anupyadav@C02FN2KYMD6M lab % kubectl describe pvc data-nifi-0 -n data-collection
-Name:          data-nifi-0
-Namespace:     data-collection
-StorageClass:  
-Status:        Pending
-Volume:        
-Labels:        app=nifi
-Annotations:   <none>
-Finalizers:    [kubernetes.io/pvc-protection]
-Capacity:      
-Access Modes:  
-VolumeMode:    Filesystem
-Used By:       nifi-0
-Events:
-  Type    Reason         Age                     From                         Message
-  ----    ------         ----                    ----                         -------
-  Normal  FailedBinding  2m19s (x422 over 107m)  persistentvolume-controller  no persistent volumes available for this claim and no storage class is set
+anupyadav@C02FN2KYMD6M lab % kubectl api-resources |grep storage 
+csidrivers                                       storage.k8s.io/v1                 false        CSIDriver
+csinodes                                         storage.k8s.io/v1                 false        CSINode
+csistoragecapacities                             storage.k8s.io/v1                 true         CSIStorageCapacity
+storageclasses                      sc           storage.k8s.io/v1                 false        StorageClass
+volumeattachments                                storage.k8s.io/v1                 false        VolumeAttachment

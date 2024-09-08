@@ -1,5 +1,9 @@
-aws eks create-cluster \
-  --name my-eks-cluster \
-  --region eu-central-1 \
-  --role-arn arn:aws:iam::<your-account-id>:role/eks-cluster-role \
-  --resources-vpc-config subnetIds=<subnet-1>,<subnet-2>,securityGroupIds=<security-group-id>
+aws eks create-nodegroup \
+  --cluster-name my-eks-cluster \
+  --nodegroup-name my-eks-nodegroup \
+  --scaling-config minSize=1,maxSize=1,desiredSize=1 \
+  --disk-size 20 \
+  --subnets <subnet-1> <subnet-2> \
+  --instance-types t3.medium \
+  --node-role arn:aws:iam::<your-account-id>:role/eks-node-role \
+  --region eu-central-1

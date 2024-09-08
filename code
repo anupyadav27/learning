@@ -1,50 +1,5 @@
-import boto3
-import json
-
-def get_ec2_instances():
-    # Initialize a session using Amazon EC2
-    ec2 = boto3.client('ec2')
-    
-    # Fetch all instances
-    response = ec2.describe_instances()
-    
-    instances_info = []
-    
-    # Loop through each reservation (which contains instances)
-    for reservation in response['Reservations']:
-        for instance in reservation['Instances']:
-            instance_info = {
-                'InstanceId': instance.get('InstanceId'),
-                'InstanceType': instance.get('InstanceType'),
-                'State': instance.get('State').get('Name'),
-                'PrivateIpAddress': instance.get('PrivateIpAddress', 'N/A'),
-                'PublicIpAddress': instance.get('PublicIpAddress', 'N/A'),
-                'SecurityGroups': []
-            }
-            
-            # Extract the associated security groups
-            for sg in instance.get('SecurityGroups', []):
-                security_group_info = {
-                    'GroupId': sg.get('GroupId'),
-                    'GroupName': sg.get('GroupName')
-                }
-                instance_info['SecurityGroups'].append(security_group_info)
-                
-            # Append the instance information to the list
-            instances_info.append(instance_info)
-    
-    return instances_info
-
-def save_to_json(data, filename='ec2_instances.json'):
-    # Save the data to a JSON file
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=4)
-    
-    print(f"Data saved to {filename}")
-
-if __name__ == "__main__":
-    # Fetch EC2 instance and security group data
-    ec2_data = get_ec2_instances()
-    
-    # Save the data to a JSON file
-    save_to_json(ec2_data)
+aws eks create-cluster \
+  --name my-eks-cluster \
+  --region eu-central-1 \
+  --role-arn arn:aws:iam::<your-account-id>:role/eks-cluster-role \
+  --resources-vpc-config subnetIds=<subnet-1>,<subnet-2>,securityGroupIds=<security-group-id>

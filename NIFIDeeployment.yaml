@@ -21,11 +21,21 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /opt/nifi/nifi-current
-  volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 10Gi
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: nifi-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nifi-service
+  labels:
+    app: nifi
+spec:
+  type: LoadBalancer  # Can use NodePort if needed
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: nifi

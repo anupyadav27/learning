@@ -1,5 +1,6 @@
 import boto3
 import json
+from datetime import datetime
 
 # Initialize boto3 clients for different AWS services
 ec2 = boto3.client('ec2')
@@ -34,17 +35,29 @@ def get_node_id(resource, key_options):
             return resource[key]
     return None
 
+# Function to convert non-serializable fields like datetime objects
+def json_serialize(data):
+    if isinstance(data, datetime):
+        return data.isoformat()  # Convert datetime to ISO format string
+    elif isinstance(data, dict):
+        return {k: json_serialize(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [json_serialize(item) for item in data]
+    else:
+        return data
+
 # Function to insert nodes into DynamoDB
 def insert_node(service_name, resource_type, resource_details, id_keys):
     node_id = get_node_id(resource_details, id_keys)
     if node_id:
         try:
+            serialized_details = json_serialize(resource_details)
             nodes_table.put_item(
                 Item={
                     'node_id': node_id,
                     'service_name': service_name,
                     'type': resource_type,
-                    'resource_details': json.dumps(resource_details)
+                    'resource_details': json.dumps(serialized_details)
                 }
             )
             print(f"Inserted node for {service_name} with ID {node_id}")
@@ -58,12 +71,13 @@ def insert_relation(relation_type, service_name, relation_details, id_keys):
     relation_id = get_node_id(relation_details, id_keys)
     if relation_id:
         try:
+            serialized_details = json_serialize(relation_details)
             relations_table.put_item(
                 Item={
                     'relation_id': relation_id,
                     'service_name': service_name,
                     'relation_type': relation_type,
-                    'relation_details': json.dumps(relation_details)
+                    'relation_details': json.dumps(serialized_details)
                 }
             )
             print(f"Inserted relation for {service_name} with ID {relation_id}")

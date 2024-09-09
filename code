@@ -6,7 +6,7 @@ dynamodb = boto3.resource('dynamodb')
 nodes_table = dynamodb.Table('CloudNodes')
 relations_table = dynamodb.Table('CloudRelations')
 
-# Initialize Neptune Gremlin Client
+# Initialize Gremlin Client to Neptune (Replace with your Neptune cluster endpoint)
 neptune_endpoint = "wss://<neptune-cluster-endpoint>:8182/gremlin"  # Replace with your Neptune endpoint
 gremlin_client = client.Client(
     neptune_endpoint,

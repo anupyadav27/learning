@@ -27,94 +27,111 @@ RELATIONS_TABLE_NAME = 'CloudRelations'
 nodes_table = dynamodb.Table(NODES_TABLE_NAME)
 relations_table = dynamodb.Table(RELATIONS_TABLE_NAME)
 
+# Helper function to extract a unique ID from various AWS resources
+def get_node_id(resource, key_options):
+    for key in key_options:
+        if key in resource:
+            return resource[key]
+    return None
+
 # Function to insert nodes into DynamoDB
-def insert_node(service_name, resource_type, resource_details):
-    try:
-        nodes_table.put_item(
-            Item={
-                'node_id': resource_details['ResourceId'] if 'ResourceId' in resource_details else resource_details['InstanceId'],
-                'service_name': service_name,
-                'type': resource_type,
-                'resource_details': json.dumps(resource_details)
-            }
-        )
-    except Exception as e:
-        print(f"Error inserting node: {e}")
+def insert_node(service_name, resource_type, resource_details, id_keys):
+    node_id = get_node_id(resource_details, id_keys)
+    if node_id:
+        try:
+            nodes_table.put_item(
+                Item={
+                    'node_id': node_id,
+                    'service_name': service_name,
+                    'type': resource_type,
+                    'resource_details': json.dumps(resource_details)
+                }
+            )
+            print(f"Inserted node for {service_name} with ID {node_id}")
+        except Exception as e:
+            print(f"Error inserting node for {service_name}: {e}")
+    else:
+        print(f"Failed to find node_id for {service_name} in {resource_details}")
 
 # Function to insert relationships into DynamoDB
-def insert_relation(relation_type, service_name, relation_details):
-    try:
-        relations_table.put_item(
-            Item={
-                'relation_id': relation_details['RelationId'] if 'RelationId' in relation_details else relation_details['VpcId'],
-                'service_name': service_name,
-                'relation_type': relation_type,
-                'relation_details': json.dumps(relation_details)
-            }
-        )
-    except Exception as e:
-        print(f"Error inserting relation: {e}")
+def insert_relation(relation_type, service_name, relation_details, id_keys):
+    relation_id = get_node_id(relation_details, id_keys)
+    if relation_id:
+        try:
+            relations_table.put_item(
+                Item={
+                    'relation_id': relation_id,
+                    'service_name': service_name,
+                    'relation_type': relation_type,
+                    'relation_details': json.dumps(relation_details)
+                }
+            )
+            print(f"Inserted relation for {service_name} with ID {relation_id}")
+        except Exception as e:
+            print(f"Error inserting relation for {service_name}: {e}")
+    else:
+        print(f"Failed to find relation_id for {service_name} in {relation_details}")
 
 # Fetch EC2 instances (Compute Node)
 def fetch_ec2_instances():
     instances = ec2.describe_instances()
     for reservation in instances['Reservations']:
         for instance in reservation['Instances']:
-            insert_node('EC2', 'Compute', instance)
+            insert_node('EC2', 'Compute', instance, ['InstanceId'])
 
 # Fetch S3 Buckets (Storage Node)
 def fetch_s3_buckets():
     buckets = s3.list_buckets()
     for bucket in buckets['Buckets']:
-        insert_node('S3', 'Storage', bucket)
+        insert_node('S3', 'Storage', bucket, ['Name'])
 
 # Fetch RDS instances (Database Node)
 def fetch_rds_instances():
     rds_instances = rds.describe_db_instances()
     for db_instance in rds_instances['DBInstances']:
-        insert_node('RDS', 'Database', db_instance)
+        insert_node('RDS', 'Database', db_instance, ['DBInstanceIdentifier'])
 
 # Fetch IAM roles (Relation - Access Control)
 def fetch_iam_roles():
     iam_roles = iam.list_roles()
     for role in iam_roles['Roles']:
-        insert_relation('IAM Role', 'IAM', role)
+        insert_relation('IAM Role', 'IAM', role, ['RoleId'])
 
 # Fetch VPCs (Networking Relation)
 def fetch_vpcs():
     vpcs = vpc.describe_vpcs()
     for vpc_data in vpcs['Vpcs']:
-        insert_relation('VPC', 'Networking', vpc_data)
+        insert_relation('VPC', 'Networking', vpc_data, ['VpcId'])
 
 # Fetch Security Groups (Networking Relation)
 def fetch_security_groups():
     security_groups = vpc.describe_security_groups()
     for sg in security_groups['SecurityGroups']:
-        insert_relation('Security Group', 'Security', sg)
+        insert_relation('Security Group', 'Security', sg, ['GroupId'])
 
 # Fetch Route 53 Hosted Zones (DNS Relation)
 def fetch_route53_zones():
     hosted_zones = route53.list_hosted_zones()
     for zone in hosted_zones['HostedZones']:
-        insert_relation('Route53 Zone', 'DNS', zone)
+        insert_relation('Route53 Zone', 'DNS', zone, ['Id'])
 
 # Fetch Load Balancers (Load Balancing Relation)
 def fetch_elbs():
     elbs = elb.describe_load_balancers()
     for lb in elbs['LoadBalancers']:
-        insert_relation('Load Balancer', 'ELB', lb)
+        insert_relation('Load Balancer', 'ELB', lb, ['LoadBalancerArn'])
 
 # Fetch Lambda functions (Compute Node)
 def fetch_lambda_functions():
     functions = lambda_client.list_functions()
     for function in functions['Functions']:
-        insert_node('Lambda', 'Compute', function)
+        insert_node('Lambda', 'Compute', function, ['FunctionArn'])
 
 # Fetch CloudTrail logs (Monitoring Node)
 def fetch_cloudtrail_logs():
     trails = cloudtrail.describe_trails()
     for trail in trails['trailList']:
-        insert_node('CloudTrail', 'Monitoring', trail)
+        insert_node('CloudTrail', 'Monitoring', trail, ['TrailARN'])
 
 # Fetch GuardDuty findings (Security Node)
 def fetch_guardduty_findings():
@@ -122,25 +139,25 @@ def fetch_guardduty_findings():
     for detector_id in detectors['DetectorIds']:
         findings = guardduty.list_findings(DetectorId=detector_id)
         for finding in findings['FindingIds']:
-            insert_node('GuardDuty', 'Security', finding)
+            insert_node('GuardDuty', 'Security', {'FindingId': finding}, ['FindingId'])
 
 # Fetch Athena Workgroups (Analytics Node)
 def fetch_athena_workgroups():
     workgroups = athena.list_work_groups()
     for workgroup in workgroups['WorkGroups']:
-        insert_node('Athena', 'Analytics', workgroup)
+        insert_node('Athena', 'Analytics', workgroup, ['Name'])
 
 # Fetch Redshift clusters (Database Node)
 def fetch_redshift_clusters():
     clusters = redshift.describe_clusters()
     for cluster in clusters['Clusters']:
-        insert_node('Redshift', 'Database', cluster)
+        insert_node('Redshift', 'Database', cluster, ['ClusterIdentifier'])
 
 # Fetch KMS Keys (Security Relation)
 def fetch_kms_keys():
     kms_keys = kms.list_keys()
     for key in kms_keys['Keys']:
-        insert_relation('KMS Key', 'KMS', key)
+        insert_relation('KMS Key', 'KMS', key, ['KeyId'])
 
 # Main function to run all fetch operations
 def main():

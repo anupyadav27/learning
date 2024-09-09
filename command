@@ -75,16 +75,23 @@ aws ec2 authorize-security-group-egress \
 
 
 
+import sys
+import asyncio
+
+# Use SelectorEventLoop on Windows to avoid IOCP errors
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from gremlin_python.driver import client, serializer
 
-# Neptune Endpoint (replace with your actual endpoint)
-neptune_endpoint = "wss://<your-neptune-cluster-endpoint>:8182/gremlin"
+# Replace with your actual cluster (write) endpoint
+neptune_endpoint = "wss://<your-neptune-cluster-write-endpoint>:8182/gremlin"
 
-# Initialize the Gremlin client without username/password
+# Initialize Gremlin Client
 gremlin_client = client.Client(
     neptune_endpoint,
-    'g',  # 'g' is the default traversal source
-    message_serializer=serializer.GraphSONSerializersV2d0()  # Use GraphSON v2.0 serializer for Neptune
+    'g',
+    message_serializer=serializer.GraphSONSerializersV2d0()
 )
 
 # Function to test the connection and run a simple query

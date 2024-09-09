@@ -74,3 +74,33 @@ aws ec2 authorize-security-group-egress \
 
 
 
+
+from gremlin_python.driver import client, serializer
+
+# Neptune Endpoint (replace with your actual endpoint)
+neptune_endpoint = "wss://<your-neptune-cluster-endpoint>:8182/gremlin"
+
+# Initialize the Gremlin client without username/password
+gremlin_client = client.Client(
+    neptune_endpoint,
+    'g',  # 'g' is the default traversal source
+    message_serializer=serializer.GraphSONSerializersV2d0()  # Use GraphSON v2.0 serializer for Neptune
+)
+
+# Function to test the connection and run a simple query
+def test_gremlin_connection():
+    try:
+        # Run a simple query to list all vertices
+        gremlin_query = "g.V().limit(5)"
+        callback = gremlin_client.submitAsync(gremlin_query)
+        result = callback.result()
+        print(result.all())  # Print the results
+    except Exception as e:
+        print(f"Error connecting to Neptune: {str(e)}")
+    finally:
+        gremlin_client.close()
+
+# Test the connection
+test_gremlin_connection()
+
+

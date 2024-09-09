@@ -1,61 +1,61 @@
-anupyadav@C02FN2KYMD6M lab % kubectl describe pod nifi-0 -n data-collection                                                                    
-Name:             nifi-0
-Namespace:        data-collection
-Priority:         0
-Service Account:  default
-Node:             ip-192-168-60-173.eu-central-1.compute.internal/192.168.60.173
-Start Time:       Sun, 08 Sep 2024 20:26:10 +0530
-Labels:           app=nifi
-                  apps.kubernetes.io/pod-index=0
-                  controller-revision-hash=nifi-678d755f5c
-                  statefulset.kubernetes.io/pod-name=nifi-0
-Annotations:      <none>
-Status:           Pending
-IP:               
-IPs:              <none>
-Controlled By:    StatefulSet/nifi
-Containers:
-  nifi:
-    Container ID:   
-    Image:          apache/nifi:latest
-    Image ID:       
-    Port:           8080/TCP
-    Host Port:      0/TCP
-    State:          Waiting
-      Reason:       ContainerCreating
-    Ready:          False
-    Restart Count:  0
-    Environment:    <none>
-    Mounts:
-      /opt/nifi/nifi-current from data (rw)
-      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-7dp4t (ro)
-Conditions:
-  Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
-Volumes:
-  data:
-    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
-    ClaimName:  nifi-pvc
-    ReadOnly:   false
-  kube-api-access-7dp4t:
-    Type:                    Projected (a volume that contains injected data from multiple sources)
-    TokenExpirationSeconds:  3607
-    ConfigMapName:           kube-root-ca.crt
-    ConfigMapOptional:       <nil>
-    DownwardAPI:             true
-QoS Class:                   BestEffort
-Node-Selectors:              <none>
-Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
-                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
-Events:
-  Type     Reason              Age                  From                     Message
-  ----     ------              ----                 ----                     -------
-  Normal   Scheduled           14m                  default-scheduler        Successfully assigned data-collection/nifi-0 to ip-192-168-60-173.eu-central-1.compute.internal
-  Warning  FailedAttachVolume  6m54s (x4 over 12m)  attachdetach-controller  AttachVolume.Attach failed for volume "nifi-pv" : timed out waiting for external-attacher of ebs.csi.aws.com CSI driver to attach volume <EBS_VOLUME_ID_FOR_NIFI>
-  Warning  FailedAttachVolume  6m19s                attachdetach-controller  AttachVolume.Attach failed for volume "nifi-pv" : CSINode ip-192-168-60-173.eu-central-1.compute.internal does not contain driver ebs.csi.aws.com
-  Warning  FailedAttachVolume  5m54s                attachdetach-controller  AttachVolume.Attach failed for volume "nifi-pv" : rpc error: code = Internal desc = Could not attach volume "<EBS_VOLUME_ID_FOR_NIFI>" to node "i-0690f527a794de5ec": error listing AWS instances: operation error EC2: DescribeInstances, get identity: get credentials: failed to refresh cached credentials, no EC2 IMDS role found, operation error ec2imds: GetMetadata, request canceled, context deadline exceeded
-  Warning  FailedAttachVolume  12s (x5 over 6m11s)  attachdetach-controller  AttachVolume.Attach failed for volume "nifi-pv" : rpc error: code = Internal desc = Could not attach volume "<EBS_VOLUME_ID_FOR_NIFI>" to node "i-0690f527a794de5ec": error listing AWS instances: operation error EC2: DescribeInstances, get identity: get credentials: failed to refresh cached credentials, no EC2 IMDS role found, operation error ec2imds: GetMetadata, canceled, context deadline exceeded
+import boto3
+import json
+
+# Initialize DynamoDB resource
+dynamodb = boto3.resource('dynamodb')
+
+# DynamoDB Table Names
+NODES_TABLE_NAME = 'CloudNodes'
+RELATIONS_TABLE_NAME = 'CloudRelations'
+
+# Get the tables
+nodes_table = dynamodb.Table(NODES_TABLE_NAME)
+relations_table = dynamodb.Table(RELATIONS_TABLE_NAME)
+
+# Insert into DynamoDB (Nodes)
+def insert_node(service_name, resource_type, resource_details):
+    nodes_table.put_item(
+        Item={
+            'node_id': resource_details['ResourceId'],  # Assuming ResourceId is available
+            'service_name': service_name,
+            'type': resource_type,
+            'resource_details': json.dumps(resource_details)
+        }
+    )
+
+# Insert into DynamoDB (Relationships)
+def insert_relation(relation_type, service_name, relation_details):
+    relations_table.put_item(
+        Item={
+            'relation_id': relation_details['RelationId'],  # Assuming RelationId is available
+            'service_name': service_name,
+            'relation_type': relation_type,
+            'relation_details': json.dumps(relation_details)
+        }
+    )
+
+# Example Functions for EC2 (Nodes)
+def fetch_ec2_instances():
+    ec2 = boto3.client('ec2')
+    instances = ec2.describe_instances()
+    for reservation in instances['Reservations']:
+        for instance in reservation['Instances']:
+            insert_node('EC2', 'Compute', instance)
+
+# Example Function for VPC (Relationships)
+def fetch_vpcs():
+    vpc = boto3.client('ec2')
+    vpcs = vpc.describe_vpcs()
+    for vpc_data in vpcs['Vpcs']:
+        insert_relation('VPC', 'Networking', vpc_data)
+
+# Main Execution
+def main():
+    print("Fetching EC2 Instances (Compute Nodes)")
+    fetch_ec2_instances()
+    
+    print("Fetching VPCs (Networking Relations)")
+    fetch_vpcs()
+
+if __name__ == "__main__":
+    main()

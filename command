@@ -1,11 +1,14 @@
 aws neptune create-db-cluster \
     --db-cluster-identifier my-neptune-cluster \
     --engine neptune \
-    --master-username <your-username> \
-    --master-user-password <your-password>
+    --master-username myadmin \
+    --master-user-password mypassword \
+    --db-subnet-group-name my-neptune-subnet-group \
+    --vpc-security-group-ids <security-group-id>
 
 
-  aws neptune create-db-instance \
+
+aws neptune create-db-instance \
     --db-instance-identifier my-neptune-instance \
     --db-instance-class db.r5.large \
     --engine neptune \

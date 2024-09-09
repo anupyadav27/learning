@@ -36,3 +36,38 @@ aws neptune create-db-instance \
     --db-instance-class db.r5.large \
     --engine neptune \
     --db-cluster-identifier my-neptune-cluster
+
+
+
+# Create a security group with a description for Neptune and DynamoDB access
+aws ec2 create-security-group \
+    --group-name my-neptune-sg \
+    --description "Security group for Neptune and DynamoDB access" \
+    --vpc-id <your-vpc-id>
+
+
+
+# Allow inbound access to Neptune (Gremlin) from your IP or trusted IP range
+aws ec2 authorize-security-group-ingress \
+    --group-id <security-group-id> \
+    --protocol tcp \
+    --port 8182 \
+    --cidr <your-ip>/32  # Replace <your-ip> with your actual IP or range
+
+# Allow inbound access to DynamoDB via HTTPS (Port 443)
+aws ec2 authorize-security-group-ingress \
+    --group-id <security-group-id> \
+    --protocol tcp \
+    --port 443 \
+    --cidr 0.0.0.0/0  # Open for DynamoDB access (can be restricted by CIDR if needed)
+
+
+# Allow outbound traffic to DynamoDB
+aws ec2 authorize-security-group-egress \
+    --group-id <security-group-id> \
+    --protocol tcp \
+    --port 443 \
+    --cidr 0.0.0.0/0
+
+
+

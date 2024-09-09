@@ -1,221 +1,87 @@
 import boto3
-import json
-from datetime import datetime
-
-# Initialize boto3 clients for different AWS services
-ec2 = boto3.client('ec2')
-s3 = boto3.client('s3')
-rds = boto3.client('rds')
-iam = boto3.client('iam')
-vpc = boto3.client('ec2')
-route53 = boto3.client('route53')
-elb = boto3.client('elbv2')
-kms = boto3.client('kms')
-lambda_client = boto3.client('lambda')
-cloudtrail = boto3.client('cloudtrail')
-guardduty = boto3.client('guardduty')
-athena = boto3.client('athena')
-redshift = boto3.client('redshift')
+from gremlin_python.driver import client, serializer
 
 # Initialize DynamoDB resource
 dynamodb = boto3.resource('dynamodb')
+nodes_table = dynamodb.Table('CloudNodes')
+relations_table = dynamodb.Table('CloudRelations')
 
-# DynamoDB Table Names
-NODES_TABLE_NAME = 'CloudNodes'
-RELATIONS_TABLE_NAME = 'CloudRelations'
+# Initialize Neptune Gremlin Client
+neptune_endpoint = "wss://<neptune-cluster-endpoint>:8182/gremlin"  # Replace with your Neptune endpoint
+gremlin_client = client.Client(
+    neptune_endpoint,
+    'g',
+    username="/db/neptune",
+    password="",
+    message_serializer=serializer.GraphSONSerializersV2d0()
+)
 
-# Get the tables
-nodes_table = dynamodb.Table(NODES_TABLE_NAME)
-relations_table = dynamodb.Table(RELATIONS_TABLE_NAME)
+# Helper function to retrieve all nodes from DynamoDB
+def get_all_nodes():
+    response = nodes_table.scan()
+    return response['Items']
 
-# Helper function to extract a unique ID from various AWS resources
-def get_node_id(resource, key_options):
-    for key in key_options:
-        if key in resource:
-            return resource[key]
-    return None
+# Helper function to retrieve all relationships from DynamoDB
+def get_all_relations():
+    response = relations_table.scan()
+    return response['Items']
 
-# Function to convert non-serializable fields like datetime objects
-def json_serialize(data):
-    if isinstance(data, datetime):
-        return data.isoformat()  # Convert datetime to ISO format string
-    elif isinstance(data, dict):
-        return {k: json_serialize(v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [json_serialize(item) for item in data]
-    else:
-        return data
+# Function to insert a node into Neptune (as a Vertex)
+def add_node(node_id, service_name, node_type, details):
+    gremlin_query = f"""
+    g.addV('Resource').
+    property('node_id', '{node_id}').
+    property('service_name', '{service_name}').
+    property('type', '{node_type}').
+    property('details', '{details}')
+    """
+    callback = gremlin_client.submitAsync(gremlin_query)
+    if callback.result():
+        print(f"Inserted node {node_id}")
 
-# Function to insert nodes into DynamoDB
-def insert_node(service_name, resource_type, resource_details, id_keys):
-    node_id = get_node_id(resource_details, id_keys)
-    if node_id:
-        try:
-            serialized_details = json_serialize(resource_details)
-            nodes_table.put_item(
-                Item={
-                    'node_id': node_id,
-                    'service_name': service_name,
-                    'type': resource_type,
-                    'resource_details': json.dumps(serialized_details)
-                }
-            )
-            print(f"Inserted node for {service_name} with ID {node_id}")
-        except Exception as e:
-            print(f"Error inserting node for {service_name}: {e}")
-    else:
-        print(f"Failed to find node_id for {service_name} in {resource_details}")
+# Function to insert a relationship (Edge) into Neptune
+def add_edge(source_node_id, target_node_id, relation_type, relation_details):
+    gremlin_query = f"""
+    g.V().has('node_id', '{source_node_id}').as('source').
+    V().has('node_id', '{target_node_id}').as('target').
+    addE('{relation_type}').from('source').to('target').
+    property('details', '{relation_details}')
+    """
+    callback = gremlin_client.submitAsync(gremlin_query)
+    if callback.result():
+        print(f"Inserted edge between {source_node_id} and {target_node_id}")
 
-# Function to insert relationships into DynamoDB
-def insert_relation(relation_type, service_name, relation_details, id_keys):
-    relation_id = get_node_id(relation_details, id_keys)
-    if relation_id:
-        try:
-            serialized_details = json_serialize(relation_details)
-            relations_table.put_item(
-                Item={
-                    'relation_id': relation_id,
-                    'service_name': service_name,
-                    'relation_type': relation_type,
-                    'relation_details': json.dumps(serialized_details)
-                }
-            )
-            print(f"Inserted relation for {service_name} with ID {relation_id}")
-        except Exception as e:
-            print(f"Error inserting relation for {service_name}: {e}")
-    else:
-        print(f"Failed to find relation_id for {service_name} in {relation_details}")
+# Function to migrate nodes from DynamoDB to Neptune
+def migrate_nodes_to_neptune():
+    nodes = get_all_nodes()
+    for node in nodes:
+        node_id = node['node_id']
+        service_name = node['service_name']
+        node_type = node['type']
+        details = node['resource_details']
+        add_node(node_id, service_name, node_type, details)
 
-# Fetch EC2 instances (Compute Node)
-def fetch_ec2_instances():
-    instances = ec2.describe_instances()
-    for reservation in instances['Reservations']:
-        for instance in reservation['Instances']:
-            insert_node('EC2', 'Compute', instance, ['InstanceId'])
+# Function to migrate relationships from DynamoDB to Neptune
+def migrate_relations_to_neptune():
+    relations = get_all_relations()
+    for relation in relations:
+        source_node_id = relation['relation_id']  # Ensure you have valid source and target node IDs
+        target_node_id = relation.get('target_node_id')  # Assuming this is stored in the details
+        relation_type = relation['relation_type']
+        relation_details = relation['relation_details']
+        
+        if target_node_id:
+            add_edge(source_node_id, target_node_id, relation_type, relation_details)
 
-# Fetch S3 Buckets (Storage Node)
-def fetch_s3_buckets():
-    buckets = s3.list_buckets()
-    for bucket in buckets['Buckets']:
-        insert_node('S3', 'Storage', bucket, ['Name'])
-
-# Fetch RDS instances (Database Node)
-def fetch_rds_instances():
-    rds_instances = rds.describe_db_instances()
-    for db_instance in rds_instances['DBInstances']:
-        insert_node('RDS', 'Database', db_instance, ['DBInstanceIdentifier'])
-
-# Fetch IAM roles (Relation - Access Control)
-def fetch_iam_roles():
-    iam_roles = iam.list_roles()
-    for role in iam_roles['Roles']:
-        insert_relation('IAM Role', 'IAM', role, ['RoleId'])
-
-# Fetch VPCs (Networking Relation)
-def fetch_vpcs():
-    vpcs = vpc.describe_vpcs()
-    for vpc_data in vpcs['Vpcs']:
-        insert_relation('VPC', 'Networking', vpc_data, ['VpcId'])
-
-# Fetch Security Groups (Networking Relation)
-def fetch_security_groups():
-    security_groups = vpc.describe_security_groups()
-    for sg in security_groups['SecurityGroups']:
-        insert_relation('Security Group', 'Security', sg, ['GroupId'])
-
-# Fetch Route 53 Hosted Zones (DNS Relation)
-def fetch_route53_zones():
-    hosted_zones = route53.list_hosted_zones()
-    for zone in hosted_zones['HostedZones']:
-        insert_relation('Route53 Zone', 'DNS', zone, ['Id'])
-
-# Fetch Load Balancers (Load Balancing Relation)
-def fetch_elbs():
-    elbs = elb.describe_load_balancers()
-    for lb in elbs['LoadBalancers']:
-        insert_relation('Load Balancer', 'ELB', lb, ['LoadBalancerArn'])
-
-# Fetch Lambda functions (Compute Node)
-def fetch_lambda_functions():
-    functions = lambda_client.list_functions()
-    for function in functions['Functions']:
-        insert_node('Lambda', 'Compute', function, ['FunctionArn'])
-
-# Fetch CloudTrail logs (Monitoring Node)
-def fetch_cloudtrail_logs():
-    trails = cloudtrail.describe_trails()
-    for trail in trails['trailList']:
-        insert_node('CloudTrail', 'Monitoring', trail, ['TrailARN'])
-
-# Fetch GuardDuty findings (Security Node)
-def fetch_guardduty_findings():
-    detectors = guardduty.list_detectors()
-    for detector_id in detectors['DetectorIds']:
-        findings = guardduty.list_findings(DetectorId=detector_id)
-        for finding in findings['FindingIds']:
-            insert_node('GuardDuty', 'Security', {'FindingId': finding}, ['FindingId'])
-
-# Fetch Athena Workgroups (Analytics Node)
-def fetch_athena_workgroups():
-    workgroups = athena.list_work_groups()
-    for workgroup in workgroups['WorkGroups']:
-        insert_node('Athena', 'Analytics', workgroup, ['Name'])
-
-# Fetch Redshift clusters (Database Node)
-def fetch_redshift_clusters():
-    clusters = redshift.describe_clusters()
-    for cluster in clusters['Clusters']:
-        insert_node('Redshift', 'Database', cluster, ['ClusterIdentifier'])
-
-# Fetch KMS Keys (Security Relation)
-def fetch_kms_keys():
-    kms_keys = kms.list_keys()
-    for key in kms_keys['Keys']:
-        insert_relation('KMS Key', 'KMS', key, ['KeyId'])
-
-# Main function to run all fetch operations
+# Main function to run the migration
 def main():
-    print("Fetching EC2 Instances (Compute Nodes)")
-    fetch_ec2_instances()
-    
-    print("Fetching S3 Buckets (Storage Nodes)")
-    fetch_s3_buckets()
-    
-    print("Fetching RDS Instances (Database Nodes)")
-    fetch_rds_instances()
-    
-    print("Fetching IAM Roles (Access Control Relations)")
-    fetch_iam_roles()
-    
-    print("Fetching VPCs (Networking Relations)")
-    fetch_vpcs()
-    
-    print("Fetching Security Groups (Networking Relations)")
-    fetch_security_groups()
-    
-    print("Fetching Route 53 Zones (DNS Relations)")
-    fetch_route53_zones()
-    
-    print("Fetching Load Balancers (Load Balancing Relations)")
-    fetch_elbs()
-    
-    print("Fetching Lambda Functions (Compute Nodes)")
-    fetch_lambda_functions()
-    
-    print("Fetching CloudTrail Logs (Monitoring Nodes)")
-    fetch_cloudtrail_logs()
-    
-    print("Fetching GuardDuty Findings (Security Nodes)")
-    fetch_guardduty_findings()
-    
-    print("Fetching Athena Workgroups (Analytics Nodes)")
-    fetch_athena_workgroups()
-    
-    print("Fetching Redshift Clusters (Database Nodes)")
-    fetch_redshift_clusters()
-    
-    print("Fetching KMS Keys (Security Relations)")
-    fetch_kms_keys()
+    print("Migrating nodes from DynamoDB to Neptune...")
+    migrate_nodes_to_neptune()
+
+    print("Migrating relationships from DynamoDB to Neptune...")
+    migrate_relations_to_neptune()
+
+    print("Migration complete!")
 
 if __name__ == "__main__":
     main()

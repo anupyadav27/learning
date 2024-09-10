@@ -1,8 +1,43 @@
+# PersistentVolume for NiFi
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nifi-pv
+  namespace: data-collection
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp2
+  awsElasticBlockStore:
+    volumeID: <your-ebs-volume-id> # Replace with your actual EBS volume ID
+    fsType: ext4
+
+---
+# PersistentVolumeClaim for NiFi
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nifi-pvc
+  namespace: data-collection
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: gp2
+
+---
+# NiFi Deployment and Service
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nifi
-  namespace: data-tools
+  namespace: data-collection
 spec:
   replicas: 1
   selector:
@@ -18,12 +53,21 @@ spec:
         image: apache/nifi:latest
         ports:
         - containerPort: 8080
+        volumeMounts:
+        - mountPath: /opt/nifi/nifi-current/logs
+          name: nifi-volume
+      volumes:
+      - name: nifi-volume
+        persistentVolumeClaim:
+          claimName: nifi-pvc
+
 ---
+# NiFi Service
 apiVersion: v1
 kind: Service
 metadata:
   name: nifi-service
-  namespace: data-tools
+  namespace: data-collection
 spec:
   selector:
     app: nifi

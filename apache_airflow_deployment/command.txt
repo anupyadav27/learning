@@ -1,0 +1,27 @@
+igw-0b968e92738d57eea
+
+
+rtb-0139ced316ee8924f
+
+subnet-0e8de8765a2408515
+subnet-0fd37e52d59b4fc2f
+
+
+aws ec2 attach-internet-gateway --vpc-id vpc-030571cdbd83ae372 --internet-gateway-id igw-0b968e92738d57eea
+
+aws ec2 create-route-table --vpc-id vpc-030571cdbd83ae372
+
+
+aws ec2 create-route --route-table-id rtb-0139ced316ee8924f --destination-cidr-block 0.0.0.0/0 --gateway-id igw-0b968e92738d57eea
+
+
+aws ec2 associate-route-table --subnet-id subnet-0e8de8765a2408515 --route-table-id rtb-0139ced316ee8924f
+
+
+aws eks create-cluster --name eks-cluster --role-arn arn:aws:iam::588989875114:role/eks-cluster-role --resources-vpc-config subnetIds=subnet-0fd37e52d59b4fc2f,subnet-0e8de8765a2408515,securityGroupIds=sg-028404066dd3cc5cc
+
+
+aws eks create-nodegroup --cluster-name eks-cluster --nodegroup-name eks-nodegroup --subnets subnet-0fd37e52d59b4fc2f,subnet-0e8de8765a2408515 --instance-types t3.large --scaling-config minSize=1,maxSize=1,desiredSize=1 --disk-size 100 --node-role arn:aws:iam::588989875114:role/eks-worker-node-role --ami-type AL2_x86_64 --remote-access ec2SshKey=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCMXFlxTm+JnhjR6T76p0zwPwSTjWhcVTfRYzYrc5Vo6HBz+LNVrrlbbuUuke4J08N6cYb0v2JIOXgvEiz2MBpseFSqWtwLYpdPKjsnZ6UdYMyXrxHmFJ3lqiwR1VZr61fEVZeJexhkeqNhUtxT6jdkTzLvsHXH3PEoUSsPLx4n0AJr6eMOeiUAPUH7CqaE81s1HLTjiPG/5HRAh5BoIyjzYUDYrWKJB0TvypMRDN3W/qu0Dj/Coof4wd4xOYq3FRvhVhYxu3eK90F3x+0aRmMYM3eE+4WsNkNMIaFqz3knOfKljBVrEWa77AMoOP5iIMDHp0Z33hFrTfjUCKMCL1xd imported-openssh-key 
+
+
+aws eks create-nodegroup --cluster-name eks-cluster --nodegroup-name eks-nodegroup --subnets subnet-0fd37e52d59b4fc2f,subnet-0e8de8765a2408515 --instance-types t3.large --scaling-config minSize=1,maxSize=1,desiredSize=1 --disk-size 100 --node-role arn:aws:iam::588989875114:role/eks-worker-node-role --ami-type AL2_x86_64 --remote-access ec2SshKey=eks-final

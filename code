@@ -22,13 +22,13 @@ def upload_to_neo4j(enabled_resources):
         for resource in enabled_resources:
             session.run("MERGE (r:Resource {name: $name})", name=resource)
 
-# Main function to trigger the process
+# Main function to run as a Cloud Run Job
 def main():
     try:
         # Fetch enabled GCP resources
         enabled_resources = fetch_gcp_resources()
 
-        # Upload resources to Neo4j
+        # Upload to Neo4j
         upload_to_neo4j(enabled_resources)
 
         print("Data uploaded to Neo4j successfully")

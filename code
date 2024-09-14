@@ -1,6 +1,5 @@
 from google.cloud import resource_manager
 from neo4j import GraphDatabase
-from flask import jsonify
 
 # Function to fetch enabled GCP resources
 def fetch_gcp_resources():
@@ -12,9 +11,9 @@ def fetch_gcp_resources():
     return enabled_resources
 
 # Neo4j connection setup
-uri = "neo4j+s://<your-neo4j-uri>"
-username = "<your-username>"
-password = "<your-password>"
+uri = "neo4j+s://7d76c4ea.databases.neo4j.io"
+username = "neo4j"
+password = "JZXfDTU7pl8wOPfrnaUujXnX8zvanhYn_bn5j53NeXg"
 
 # Function to upload resources to Neo4j
 def upload_to_neo4j(enabled_resources):
@@ -23,25 +22,16 @@ def upload_to_neo4j(enabled_resources):
         for resource in enabled_resources:
             session.run("MERGE (r:Resource {name: $name})", name=resource)
 
-# Main function that handles the HTTP request
-def main(request):
+# Main function to trigger the process
+def main():
     try:
         # Fetch enabled GCP resources
         enabled_resources = fetch_gcp_resources()
 
-        # Upload to Neo4j
+        # Upload resources to Neo4j
         upload_to_neo4j(enabled_resources)
 
-        # Return a JSON response indicating success
-        return jsonify({
-            "status": "success",
-            "message": "Data uploaded to Neo4j successfully",
-            "resources": enabled_resources
-        }), 200
+        print("Data uploaded to Neo4j successfully")
 
     except Exception as e:
-        # If there's an error, return a JSON response with the error message
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        print(f"Error occurred: {str(e)}")

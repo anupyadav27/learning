@@ -1,37 +1,27 @@
-from google.cloud import resource_manager
-from neo4j import GraphDatabase
+import boto3
 
-# Function to fetch enabled GCP resources
-def fetch_gcp_resources():
-    client = resource_manager.Client()
-    enabled_resources = []
-    for project in client.list_projects():
-        if project.status == "ACTIVE":
-            enabled_resources.append(project.project_id)
-    return enabled_resources
+# Initialize Boto3 Trusted Advisor client (AWS Support API)
+client = boto3.client('support', region_name='us-east-1')
 
-# Neo4j connection setup
-uri = "neo4j+s://7d76c4ea.databases.neo4j.io"
-username = "neo4j"
-password = "JZXfDTU7pl8wOPfrnaUujXnX8zvanhYn_bn5j53NeXg"
+# List all Trusted Advisor checks
+checks = client.describe_trusted_advisor_checks(language='en')
 
-# Function to upload resources to Neo4j
-def upload_to_neo4j(enabled_resources):
-    driver = GraphDatabase.driver(uri, auth=(username, password))
-    with driver.session() as session:
-        for resource in enabled_resources:
-            session.run("MERGE (r:Resource {name: $name})", name=resource)
-
-# Main function to run as a Cloud Run Job
-def main():
-    try:
-        # Fetch enabled GCP resources
-        enabled_resources = fetch_gcp_resources()
-
-        # Upload to Neo4j
-        upload_to_neo4j(enabled_resources)
-
-        print("Data uploaded to Neo4j successfully")
-
-    except Exception as e:
-        print(f"Error occurred: {str(e)}")
+# Loop through all the checks and get detailed results for each
+for check in checks['checks']:
+    check_id = check['id']
+    check_name = check['name']
+    print(f"Fetching details for Check ID: {check_id}, Name: {check_name}")
+    
+    # Get the detailed result for each check
+    check_result = client.describe_trusted_advisor_check_result(checkId=check_id)
+    
+    # Print the detailed result for the check
+    result = check_result['result']
+    print(f"Status: {result['status']}")
+    print(f"Flagged Resources: {result['resourcesSummary']['resourcesFlagged']}")
+    
+    for resource in result['flaggedResources']:
+        print(f"Resource ID: {resource['resourceId']}, Status: {resource['status']}")
+        # Print metadata fields for each flagged resource
+        print(f"Metadata: {resource['metadata']}")
+    print("\n")  # Add a new line for better readability between checks

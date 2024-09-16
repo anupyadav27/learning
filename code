@@ -1,7 +1,11 @@
 import boto3
+import yaml
 
 # Initialize Boto3 Trusted Advisor client (AWS Support API)
 client = boto3.client('support', region_name='us-east-1')
+
+# Prepare a dictionary to hold the output
+output = []
 
 # List all Trusted Advisor checks
 checks = client.describe_trusted_advisor_checks(language='en')
@@ -10,29 +14,38 @@ checks = client.describe_trusted_advisor_checks(language='en')
 for check in checks['checks']:
     check_id = check['id']
     check_name = check['name']
-    print(f"Fetching details for Check ID: {check_id}, Name: {check_name}")
-    
+    check_data = {"Check ID": check_id, "Name": check_name, "Resources": []}
+
     # Get the detailed result for each check
     try:
         check_result = client.describe_trusted_advisor_check_result(checkId=check_id)
         result = check_result['result']
 
-        # Print status and handle cases where resourcesSummary or flaggedResources is missing
+        # Get status
         status = result.get('status', 'status not available')
-        print(f"Status: {status}")
+        check_data['Status'] = status
         
+        # Get flagged resources
         resources_summary = result.get('resourcesSummary', {})
         flagged_resources = resources_summary.get('resourcesFlagged', 0)
-        print(f"Flagged Resources: {flagged_resources}")
+        check_data['Flagged Resources'] = flagged_resources
 
-        # Loop through flagged resources (if any exist)
+        # Loop through flagged resources and add to dictionary
         for resource in result.get('flaggedResources', []):
-            print(f"Resource ID: {resource['resourceId']}, Status: {resource['status']}")
-            print(f"Metadata: {resource['metadata']}")
+            resource_data = {
+                "Resource ID": resource['resourceId'],
+                "Status": resource['status'],
+                "Metadata": resource['metadata']
+            }
+            check_data["Resources"].append(resource_data)
         
     except KeyError as e:
-        print(f"KeyError: {e} - Some fields might be missing for Check ID: {check_id}")
+        check_data['Error'] = f"KeyError: {e} - Some fields might be missing"
     except Exception as e:
-        print(f"An error occurred: {e}")
+        check_data['Error'] = f"An error occurred: {e}"
 
-    print("\n")  # Add a new line for better readability between checks
+    output.append(check_data)
+
+# Write the output to a YAML file
+with open('trusted_advisor_output.yaml', 'w') as yaml_file:
+    yaml.dump(output, yaml_file, default_flow_style=False)
